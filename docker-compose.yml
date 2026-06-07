@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always
+
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: always
