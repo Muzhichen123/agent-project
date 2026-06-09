@@ -3,6 +3,11 @@ Rerank 精排模块
 使用本地 BGE Cross-Encoder 对粗排结果做交叉编码器精排
 失败时自动回退粗排，不影响主流程
 """
+import os as _os
+
+# 必须在 import sentence_transformers 前设置，否则镜像不生效
+_os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+
 from typing import List
 from langchain_core.documents import Document
 from utils.config_handler import rag_config
@@ -19,14 +24,17 @@ class RerankerService:
         self._model_name = cfg.get("model_name", "BAAI/bge-reranker-base")
 
     def _load_model(self):
-        """延迟加载，首次调用时才下载模型"""
+        """延迟加载：本地缓存 → 镜像下载 → 回退"""
         if self._model is not None:
             return
         try:
             from sentence_transformers import CrossEncoder
-            os_environ = __import__("os").environ
-            os_environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-            self._model = CrossEncoder(self._model_name, local_files_only=True)
+            # 优先本地缓存
+            try:
+                self._model = CrossEncoder(self._model_name, local_files_only=True)
+            except Exception:
+                # 本地没有，走国内镜像下载
+                self._model = CrossEncoder(self._model_name)
             logger.info(f"[Rerank] 模型加载成功: {self._model_name}")
         except Exception as e:
             logger.error(f"[Rerank] 模型加载失败: {e}")
@@ -44,15 +52,12 @@ class RerankerService:
             return docs[:self.top_n]
 
         try:
-            # 构造 (query, doc) 对
             pairs = [(query, doc.page_content) for doc in docs]
             scores = self._model.predict(pairs)
 
-            # 将分数写入 metadata
             for doc, score in zip(docs, scores):
                 doc.metadata["rerank_score"] = round(float(score), 4)
 
-            # 按分数降序排序 + 阈值过滤
             scored = [(doc, s) for doc, s in zip(docs, scores) if s >= self.score_threshold]
             scored.sort(key=lambda x: x[1], reverse=True)
 
