@@ -1,2 +1,8 @@
 chat_model_name: qwen3.7-max
 embedding_model_name: text-embedding-v4
+
+rerank:
+  enabled: true
+  model_name: BAAI/bge-reranker-base
+  top_n: 3
+  score_threshold: 0.0

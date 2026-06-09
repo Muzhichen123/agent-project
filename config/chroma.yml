@@ -1,5 +1,5 @@
 collection_name: agent
-k: 3
+k: 8
 persist_directory: ./chroma_db
 data_path: data
 md5_hex_store: md5.txt

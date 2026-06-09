@@ -1,5 +1,5 @@
 """
-RAG服务类 
+RAG服务类
 用户提问，搜索参考资料，将提问和参考资料合并，并提交给模型，让模型总结回复
 """
 import sys
@@ -7,6 +7,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 from Rag.vector_store import VectorStoreService
+from Rag.reranker import RerankerService
 from utils.logger import logger
 from utils.prompt_loader import load_rag_prompts
 from langchain_core.prompts import PromptTemplate
@@ -23,6 +24,7 @@ class RagSummaryService(object):
     def __init__(self):
         self.vector_store=VectorStoreService()
         self.retriever=self.vector_store.get_retriever()
+        self.reranker=RerankerService()
         self.prompt_text=load_rag_prompts()
         self.prompt_template=PromptTemplate.from_template(self.prompt_text)
         self.model=chat_model
@@ -35,6 +37,8 @@ class RagSummaryService(object):
         
     def rag_summary(self,query:str)->str:
         context_docs=self.retriever_docs(query)
+        # Rerank 精排（enabled=false 时直接跳过）
+        context_docs=self.reranker.rerank(query, context_docs)
         context=""
         counter=0
         for i in context_docs:
