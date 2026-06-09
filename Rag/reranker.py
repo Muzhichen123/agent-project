@@ -26,7 +26,7 @@ class RerankerService:
             from sentence_transformers import CrossEncoder
             os_environ = __import__("os").environ
             os_environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-            self._model = CrossEncoder(self._model_name)
+            self._model = CrossEncoder(self._model_name, local_files_only=True)
             logger.info(f"[Rerank] 模型加载成功: {self._model_name}")
         except Exception as e:
             logger.error(f"[Rerank] 模型加载失败: {e}")
