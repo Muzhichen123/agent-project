@@ -8,3 +8,14 @@ allow_knowledge_file_type: ["pdf", "docx", "txt"]
 chunk_size: 200
 chunk_overlap: 20
 separator: ["\n\n", "\n", ".", "?", "。", "！", " "]
+
+# 混合检索（BM25 + 稠密向量 RRF 融合）
+# 今日仅建 BM25 索引，RRF 融合逻辑明日改动 rag_service
+hybrid_search:
+  enabled: true                     # 混合检索已开启
+  bm25_top_k: 8                     # BM25 粗排召回数量
+  dense_top_k: 8                    # 稠密向量粗排召回数量（复用 k 值）
+  rrf_k: 60                         # RRF 平滑参数（标准值 60）
+  final_top_k: 5                    # RRF 融合后输出给 Reranker 的文档数
+  bm25_index_path: data/bm25_index.pkl
+  custom_dict_path: data/custom_dict.txt

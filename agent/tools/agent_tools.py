@@ -26,33 +26,63 @@ def load_city_data():
         city_path = get_abs_path("data/external/city.csv")
         city_df = pd.read_csv(city_path, encoding="utf-8")
 
+# 拼音→中文 映射表（IP API 返回英文/拼音，CSV 存的是中文）
+_PINYIN_MAP = {
+    "dongguan": "东莞", "guangzhou": "广州", "shenzhen": "深圳",
+    "beijing": "北京", "shanghai": "上海", "hangzhou": "杭州",
+    "chengdu": "成都", "wuhan": "武汉", "nanjing": "南京",
+    "chongqing": "重庆", "tianjin": "天津", "suzhou": "苏州",
+    "foshan": "佛山", "zhuhai": "珠海", "xiamen": "厦门",
+    "qingdao": "青岛", "dalian": "大连", "xi'an": "西安",
+    "changsha": "长沙", "zhengzhou": "郑州", "jinan": "济南",
+    "guangdong": "广东", "zhejiang": "浙江", "jiangsu": "江苏",
+    "fujian": "福建", "hubei": "湖北", "hunan": "湖南",
+    "sichuan": "四川", "shandong": "山东", "liaoning": "辽宁",
+    "shaanxi": "陕西", "henan": "河南", "hebei": "河北",
+}
+
+
+def _pinyin_to_chinese(name: str) -> str:
+    """将拼音/英文城市名转为中文，未命中则原样返回"""
+    return _PINYIN_MAP.get(name.strip().lower(), name)
+
+
 def get_city_code(city_name: str) -> int:
     """
     获取城市编码
-    
+
     Args:
-        city_name: 城市名称
-        
+        city_name: 城市名称（中文或拼音）
+
     Returns:
         城市编码
     """
     load_city_data()
-    
+
     # 优先匹配区县
     match = city_df[city_df['district'] == city_name]
     if not match.empty:
         return match.iloc[0]['areacode/城市ID']
-    
+
     # 匹配城市
     match = city_df[city_df['city'] == city_name]
     if not match.empty:
         return match.iloc[0]['areacode/城市ID']
-    
+
+    # IP API 返回 "Guangdong Dongguan" 格式，拆开逐词匹配（拼音→中文转换）
+    # 同时匹配 city（如"东莞市"）和 district（如"东莞"）两列
+    for part in city_name.split():
+        cn = _pinyin_to_chinese(part)
+        for col in ("city", "district"):
+            match = city_df[city_df[col] == cn]
+            if not match.empty:
+                return match.iloc[0]['areacode/城市ID']
+
     # 模糊匹配城市
     match = city_df[city_df['city'].str.contains(city_name, na=False)]
     if not match.empty:
         return match.iloc[0]['areacode/城市ID']
-    
+
     # 默认北京
     logger.warning(f"未找到城市 {city_name}，使用默认值北京")
     return 101010100

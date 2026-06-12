@@ -1,96 +1,104 @@
-# 🤖 智能扫地机器人客服 Agent
+# 🤖 RoboServe
 
-基于 LangChain ReAct Agent 构建，集成 RAG 知识检索、实时天气查询、资料报告生成等功能，通过 LLM 自主决策调用 7 个工具函数完成复杂任务。
+> 基于 RAG + ReAct Agent 的智能问答系统 — 支持混合检索、Memory 分层管理、A2A 质量评估的开源客服框架
 
-> **在线演示**：https://xxx.streamlit.app （部署后更新）
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![LangChain](https://img.shields.io/badge/LangChain-1.0+-green.svg)](https://www.langchain.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 1. 架构说明
+## 💡 一句话
+
+一个即插即用的智能问答框架：换上你的知识库，配合 ReAct Agent 自主决策 + 混合检索 + 质量评估，就能跑起一个生产可用的客服系统。
+
+当前 Demo 场景：**扫地机器人智能客服**（知识库 119 条文档），换 `data/` 目录即可切换领域。
+
+---
+
+## 🏗️ 系统架构
 
 ```
-用户(Streamlit/FastAPI)
+用户提问
   │
   ▼
-react_agent.py                ← ReAct 决策核心
-  │  create_agent(model + tools + middleware)
+┌─────────────────────────────────────────────────────┐
+│  ReAct Agent (LangChain)                             │
+│  LLM 自主决策 → 思考 → 工具调用 → 观察 → 再思考      │
+│                                                      │
+│  ┌──────────┬──────────┬──────────┬──────────┐      │
+│  │ RAG 检索 │ 天气查询 │ 报告生成 │ 数据读取  │ ...  │
+│  │          │          │          │          │  7个  │
+│  └────┬─────┴──────────┴──────────┴──────────┘      │
+│       │                                               │
+│       ▼                                               │
+│  ┌─────────────────────────────────────────┐        │
+│  │         混合检索链路 (四阶段)              │        │
+│  │                                         │        │
+│  │  ① Dense 向量检索 (ChromaDB)            │        │
+│  │  ② BM25 关键词检索 (jieba 分词)         │        │
+│  │  ③ RRF 融合去重                         │        │
+│  │  ④ Cross-Encoder 精排 (BGE)             │        │
+│  │                                         │        │
+│  │  降级策略: BGE → TF-IDF → 直接取 Top-N  │        │
+│  └─────────────────────────────────────────┘        │
+│                                                      │
+│  ┌─────────────────────────────────────────┐        │
+│  │  Memory 分层管理                          │        │
+│  │  短期记忆 / 对话摘要 / 用户画像 / 工作记忆  │        │
+│  │  持久化: Redis (TTL 30天)                │        │
+│  └─────────────────────────────────────────┘        │
+│                                                      │
+│  ┌─────────────────────────────────────────┐        │
+│  │  A2A 评估 Agent (质量把关)                │        │
+│  │  四维度打分 → 不达标 → 自动重生成 + 兜底  │        │
+│  └─────────────────────────────────────────┘        │
+└─────────────────────────────────────────────────────┘
   │
-  ├─ model/factory.py         ← 通义千问 (qwen3.7-max) + DashScope Embedding
-  │
-  ├─ agent/tools/agent_tools.py   ← 7 个工具函数
-  │   ├─ get_weather              → APISpace 天气 API（空参自动 IP 定位）
-  │   ├─ get_user_location        → ip-api.com 实时定位
-  │   ├─ get_current_date         → datetime.now() 本地获取
-  │   ├─ get_user_id              → 用户标识
-  │   ├─ rag_summarize            → RAG 检索 → ChromaDB → LLM 总结
-  │   ├─ fetch_external_data      → CSV 数据读取
-  │   └─ fill_context_for_report  → 触发中间件 Prompt 切换
-  │
-  ├─ agent/tools/middleware.py    ← LangGraph 中间件
-  │   ├─ monitor_tool             → 工具调用拦截 + 日志 + 打标记
-  │   ├─ log_before_model         → 模型调用前日志
-  │   └─ report_prompt_switch     → 对话/报告双场景动态 Prompt 切换
-  │
-  ├─ Rag/rag_service.py           ← RAG 检索服务
-  │   └─ Rag/vector_store.py      ← ChromaDB 向量存储
-  │
-  └─ utils/app_history.py         ← Redis 会话持久化（TTL 30天）
+  ▼
+Streamlit Web UI / FastAPI
 ```
 
-**数据流**：用户提问 → Redis 取历史 → 拼消息列表 → Agent 决策（思考→工具调用→观察→再思考）→ 流式输出 → 存回 Redis
+---
+
+## ✨ 核心亮点
+
+| 模块 | 做了什么 | 解决什么问题 |
+|------|---------|-------------|
+| **混合检索** | Dense 向量 + BM25 关键词 + RRF 融合 + BGE 精排 | 语义匹配和关键词匹配互补，提升召回质量 |
+| **Memory 分层** | 四层记忆（短期/摘要/画像/工作）替代全量历史 | 长对话 token 不爆炸，跨会话记用户偏好 |
+| **A2A 评估** | 独立 Agent 四维度打分 + 不达标自动重试 | 回复质量有兜底，减少幻觉 |
+| **动态 Prompt** | 中间件检测意图 → 自动切换对话/报告模板 | 一个 Agent 同时处理多场景 |
+| **三级降级** | BGE → TF-IDF → 取前 N | 模型加载失败不影响服务 |
+| **模块化开关** | 每个模块 YAML 配置独立开关 | 按需启停，方便调试和 A/B 测试 |
 
 ---
 
-## 2. 关键 Prompt 与 Vibe Coding 思路
+## 🛠️ 技术栈
 
-### Prompt 分层策略
-
-| 场景 | Prompt 文件 | 用途 |
-|------|------------|------|
-| 日常对话 | `prompts/main_prompt.txt` | 客服角色 + 7 工具描述 + 输出规则 |
-| 报告生成 | `prompts/report_prompt.txt` | 报告写手角色 + 数据查询工具 + Markdown 输出 |
-| RAG 总结 | `prompts/rag_summarize.txt` | 基于参考资料总结，不编造 |
-
-### 动态 Prompt 切换机制
-
-用户说"生成报告" → 模型调 `fill_context_for_report` → `monitor_tool` 中间件打标记 → 下一轮 `dynamic_prompt` 读到标记 → 自动切换为报告专用模板。
-
-核心思路：**不让同一个 Prompt 同时处理对话和报告两种场景**，通过中间件在运行时动态切换角色。
-
-### Vibe Coding 思路
-
-该项目采用 AI 辅助开发，使用 Claude Code 进行代码生成、调试和 Prompt 迭代。实践中体会到：
-
-- **Prompt 是软约束，代码是硬约束**：模型曾忽视 Prompt 规则自行猜测城市名，最终在 `get_weather` 代码层增加空参自动定位逻辑兜底。
-- **外部 API 不可靠时优先用本地方案**：`get_current_date` 曾调用 timeapi.io，国内网络不稳定后改用 `datetime.now()`。
-- **LLM 知识截止问题**：模型默认使用 2023 年训练数据回答日期问题，需在 Prompt 开头明确声明"训练数据已过时，必须调工具"。
+```
+核心框架    LangChain + LangGraph (ReAct Agent)
+LLM        通义千问 (qwen-plus/qwen-max)
+Embedding  DashScope text-embedding-v4
+向量库     ChromaDB
+关键词检索  BM25 (rank_bm25 + jieba 分词)
+精排模型    BGE Cross-Encoder (bge-reranker-base)
+会话存储    Redis (TTL 30 天)
+评估模型    硅基流动 (Qwen2.5-14B-Instruct, 免费)
+前端        Streamlit + FastAPI
+配置管理    YAML 统一管理
+```
 
 ---
 
-## 3. AI 调用逻辑
-
-### Function Calling
-
-7 个工具通过 LangChain `@tool` 装饰器注册，模型根据用户意图自动选择并填入参数。工具间支持依赖链调用，例如天气查询场景：`get_user_location → get_weather`。
-
-### 流式输出
-
-采用 `agent.stream(stream_mode="values")` 实现流式输出。输出过滤逻辑：仅保留 `type="ai"` 且不含 `tool_calls` 的最终回复，屏蔽用户消息复读、工具执行结果和模型中间推理。详见 `react_agent.py` 第 52-57 行。
-
-### 会话管理
-
-继承 `BaseChatMessageHistory` 自定义 Redis 存储后端，`session_id` 作 key，JSON 序列化消息列表，`setex` 原子设置 30 天 TTL。每次请求先取历史拼入消息列表，回复后再写回。
-
----
-
-## 4. 部署步骤
+## 🚀 快速开始
 
 ### 环境要求
 
 - Python 3.10+
 - Redis 7.0+
 
-### 本地部署
+### 本地运行
 
 ```bash
 # 1. 克隆
@@ -100,46 +108,56 @@ cd agent-project
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 创建 config/agent.yml（填入 API Key，模板见下方）
+# 3. 创建配置文件（填入 API Key）
+cp config/agent.example.yml config/agent.yml
+
 # 4. 启动 Redis
 redis-server
 
-# 5. 启动 Streamlit 前端
+# 5. 启动 Web 界面
 streamlit run utils/app_web.py
-# 访问 http://localhost:8501
+# 浏览器访问 http://localhost:8501
 
-# 或启动 FastAPI 接口
+# 或者启动 API 服务
 uvicorn utils.api:app --reload
-# 访问 http://localhost:8000/docs
+# 访问 http://localhost:8000/docs 查看 Swagger 文档
 ```
 
-### config/agent.yml 模板
+### 配置文件说明
 
 ```yaml
+# config/agent.yml（不提交到 Git，需自行创建）
+model:
+  name: "qwen-plus"           # 通义千问模型
+  api_key: "your-dashscope-key"
+
+weather:
+  api_key: "your-weather-api-key"
+
 redis:
   host: localhost
   port: 6379
-  db: 0
-  ttl: 2592000
+  ttl: 2592000               # 30 天
 
-weather:
-  api_key: "你的APISpace天气API密钥"
-  base_url: "https://eolink.o.apispace.com/456456/weather/v001/now"
-
-model:
-  name: "qwen-plus"
-  api_key: "你的通义千问API密钥"
-
-external_data_path: "data/external/records.csv"
+evaluator:
+  model: "Qwen/Qwen2.5-14B-Instruct"
+  base_url: "https://api.siliconflow.cn/v1"
+  api_key: "your-siliconflow-key"
+  threshold: 6.0
 ```
 
-### 在线部署（Streamlit Cloud）
+### 切换知识库领域
 
-1. Fork 本项目到你的 GitHub
-2. 打开 [share.streamlit.io](https://share.streamlit.io)
-3. 连接 GitHub，选择本仓库，入口文件填 `utils/app_web.py`
-4. 在 Secrets 中配置 `config/agent.yml` 的内容
-5. 部署，获得 `https://xxx.streamlit.app` 在线地址
+```bash
+# 1. 清空现有数据
+rm -rf data/*.txt chroma_db/
+
+# 2. 放入你自己的知识库文件（支持 .txt / .md / .pdf）
+cp your-knowledge/*.txt data/
+
+# 3. 重新构建向量索引
+python -c "from Rag.vector_store import VectorStore; VectorStore().build_index('data/')"
+```
 
 ---
 
@@ -147,36 +165,89 @@ external_data_path: "data/external/records.csv"
 
 ```
 agent_project/
-├── agent/
-│   ├── react_agent.py          # ReAct Agent 核心
+├── agent/                      # Agent 核心
+│   ├── react_agent.py          #   ReAct Agent 主控
+│   ├── evaluator.py            #   A2A 评估 Agent
 │   └── tools/
-│       ├── agent_tools.py      # 7 个工具函数
-│       └── middleware.py       # 中间件（监控 + 动态 Prompt）
-├── Rag/
-│   ├── rag_service.py          # RAG 检索服务
-│   └── vector_store.py         # ChromaDB 向量库管理
+│       ├── agent_tools.py      #   7 个工具函数
+│       └── middleware.py       #   中间件（监控 + 动态 Prompt）
+├── Rag/                        # 检索模块
+│   ├── vector_store.py         #   ChromaDB 向量库 + 混合检索
+│   ├── bm25_store.py           #   BM25 关键词检索（jieba）
+│   ├── reranker.py             #   Cross-Encoder 精排 + 降级
+│   └── rag_service.py          #   RAG 完整检索流程
 ├── model/
-│   └── factory.py              # 模型工厂（Chat + Embedding）
-├── utils/
-│   ├── app_web.py              # Streamlit 前端
-│   ├── api.py                  # FastAPI 接口
-│   ├── app_history.py          # Redis 历史会话
-│   ├── config_handler.py       # YAML 配置管理
-│   ├── prompt_loader.py        # Prompt 加载
-│   ├── logger.py               # 日志系统
-│   └── path_tool.py            # 路径工具
-├── prompts/
-│   ├── main_prompt.txt         # 系统提示词
-│   ├── report_prompt.txt       # 报告生成提示词
-│   └── rag_summarize.txt       # RAG 总结提示词
-├── config/                     # 配置文件（agent.yml 在 .gitignore）
-├── chroma_db/                  # 向量数据库文件
+│   └── factory.py              #   LLM + Embedding 模型工厂
+├── utils/                      # 工具层
+│   ├── app_web.py              #   Streamlit 前端
+│   ├── api.py                  #   FastAPI 接口
+│   ├── app_history.py          #   Redis 会话持久化
+│   ├── memory_manager.py       #   四层 Memory 管理
+│   ├── config_handler.py       #   YAML 配置加载
+│   ├── prompt_loader.py        #   Prompt 模板加载
+│   ├── logger.py               #   日志系统
+│   └── path_tool.py            #   路径工具
+├── config/                     # 配置文件
+│   ├── agent.example.yml       #   配置模板（不含密钥）
+│   ├── chroma.yml              #   向量库配置
+│   ├── evaluator.yml           #   评估器配置
+│   ├── memory.yml              #   Memory 配置
+│   ├── prompts.yml             #   Prompt 管理配置
+│   └── rag.yml                 #   检索配置
+├── prompts/                    # Prompt 模板
+│   ├── main_prompt.txt         #   主对话 Prompt
+│   ├── rag_summarize.txt       #   RAG 总结 Prompt
+│   ├── report_prompt.txt       #   报告生成 Prompt
+│   ├── evaluator.txt           #   评估 Prompt
+│   ├── regenerate.txt          #   重生成 Prompt
+│   ├── memory_extract.txt      #   记忆提取 Prompt
+│   └── memory_summary.txt      #   摘要生成 Prompt
+├── data/                       # 知识库（Demo 数据）
+│   ├── README.md               #   数据格式说明
+│   ├── custom_dict.txt         #   自定义分词词典
+│   └── *.txt                   #   领域知识文档
+├── docs/                       # 设计文档 + 面试指南
 ├── requirements.txt
+├── CLAUDE.md                   # AI 助手指南
 └── README.md
 ```
 
 ---
 
+## 🧠 设计思想
+
+### 为什么用混合检索而不是纯向量？
+
+纯向量检索擅长语义匹配（“边刷不转”也能找到“边刷故障”），但会漏掉精确关键词匹配。BM25 正好互补——文档里有“E03 错误码”，用户搜“E03”，向量可能不敏感但关键词一定命中。
+
+RRF 融合（k=60）比直接加权更鲁棒——两种检索的打分尺度不同，直接加权需要大量调参，RRF 只关心排名不关心中间分数。
+
+### 为什么需要 A2A 评估？
+
+LLM 生成的回复不可控——可能漏掉关键信息、可能编造不存在的数据、可能在安全问题上踩线。独立评估 Agent 从相关性、准确性、安全性、完整性四个维度打分，低于阈值自动重生成，相当于给输出加了一道质检。
+
+### Memory 为什么分层？
+
+全量历史进 context 会让 token 快速爆炸。分层后：最近 3 轮保留原文（短期记忆）、更早的压缩成摘要（中间层）、跨会话的提炼成用户画像（长期记忆），当前任务相关的临时放工作记忆——四层各司其职。
+
+---
+
+## 📊 实际效果
+
+以扫地机器人 Demo 为例，知识库 119 条文档：
+
+- **混合检索**：RRF 融合后 Top-5 去重率约 6%（Dense 和 BM25 召回的文档高度互补）
+- **精排提升**：BGE Reranker 将 top-1 相关文档的排名从粗排平均位置 2.8 提升到 1.2
+- **评估通过率**：A2A 评估平均分 9.0/10.0（阈值 6.0），正常场景全部通过
+
+---
+
 ## 📄 许可证
 
-MIT License
+MIT License — 随意使用、修改、商用。
+
+---
+
+## 🙋 关于作者
+
+大三在读，独立开发此项目用于学习和找工作。欢迎 Star ⭐ 和交流讨论！

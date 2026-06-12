@@ -1,0 +1,23 @@
+# RoboServe 配置文件模板
+# 复制此文件为 agent.yml 并填入你的 API Key：
+#   cp config/agent.example.yml config/agent.yml
+
+# Redis 会话存储
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+  ttl: 2592000          # 30 天，单位：秒
+
+# 天气查询（APISpace）
+weather:
+  api_key: "your-weather-api-key"
+  base_url: "https://eolink.o.apispace.com/456456/weather/v001/now"
+
+# 主对话模型（通义千问 DashScope）
+model:
+  name: "qwen-plus"     # 可选：qwen-plus / qwen-max / qwen-turbo
+  api_key: "your-dashscope-api-key"
+
+# 外部数据文件路径
+external_data_path: "data/external/records.csv"

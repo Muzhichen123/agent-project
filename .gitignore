@@ -1,4 +1,3 @@
-# .gitignore 内容
 # Python
 __pycache__/
 *.pyc
@@ -12,19 +11,18 @@ env/
 venv/
 *.egg-info/
 
-# 配置文件（敏感信息）
+# 配置文件（含 API Key，不要提交！）
 config/agent.yml
 .env
 
-# 数据库文件
+# 数据库 & 缓存文件
+chroma_db/
 *.sqlite3
+*.pkl
 
 # 日志
+logs/
 *.log
-
-# 数据文件
-data/
-*.csv
 
 # IDE
 .vscode/
@@ -33,5 +31,20 @@ data/
 *.swo
 *~
 
+# Claude Code 本地配置
+.claude/
+
 # Streamlit
 .streamlit/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 临时文件
+~$*.docx
+~$*.xlsx
+
+# 测试 & 临时
+md5.txt

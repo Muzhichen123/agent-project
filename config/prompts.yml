@@ -1,3 +1,5 @@
 main_prompt_path : prompts/main_prompt.txt
 rag_summarize_prompt_path: prompts/rag_summarize.txt
 report_prompt_path: prompts/report_prompt.txt
+memory_summary_prompt_path: prompts/memory_summary.txt
+memory_extract_prompt_path: prompts/memory_extract.txt

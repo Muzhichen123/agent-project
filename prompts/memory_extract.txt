@@ -1,0 +1,25 @@
+从以下用户对话中增量更新用户画像。只输出 JSON，不要任何其他内容。
+
+**已有画像（请在此基础上更新）：**
+{current_profile}
+
+**最新用户对话：**
+{user_messages}
+
+JSON 字段（未知的填 null）：
+- device_model: 用户使用的扫地机器人品牌和型号
+- main_issues: 用户当前遇到的主要问题列表（数组）。合并新旧问题，已解决的放入 resolved_issues
+- resolved_issues: 已经解决的问题列表（数组）。从 main_issues 中移除已解决的
+- preferences: 用户表达过的偏好
+- floor_type: 家庭地面类型（"木地板"/"瓷砖"/"地毯"/"混合"/null）
+- has_pets: 是否有宠物（true/false/null）
+- auto_features: 用户拥有的自动化功能（数组，如["自动集尘"]）
+- skill_level: 用户技术水平（"beginner"/"intermediate"/"advanced"/null）
+
+**重要规则：**
+1. 已有画像中的信息如果在最新对话中没有被推翻，保留不变
+2. 已解决的问题从 main_issues 移除，移入 resolved_issues
+3. 列表字段追加新项，不要丢失旧值
+
+示例：
+{{"device_model":"科沃斯X1","main_issues":["拖地不干净"],"resolved_issues":["E03错误"],"preferences":"偏好安静模式","floor_type":"瓷砖","has_pets":true,"auto_features":["自动集尘"],"skill_level":"intermediate"}}

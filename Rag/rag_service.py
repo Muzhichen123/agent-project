@@ -33,6 +33,8 @@ class RagSummaryService(object):
             chain=self.prompt_template | print_prompt| self.model | StrOutputParser()
             return chain
     def retriever_docs(self,query:str)->list[Document]:
+            if self.vector_store.hybrid_enabled:
+                return self.vector_store.hybrid_retrieve(query)
             return self.retriever.invoke(query)
         
     def rag_summary(self,query:str)->str:
