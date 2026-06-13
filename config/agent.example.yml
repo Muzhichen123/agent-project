@@ -19,5 +19,25 @@ model:
   name: "qwen-plus"     # 可选：qwen-plus / qwen-max / qwen-turbo
   api_key: "your-dashscope-api-key"
 
+# A2A 评估 Agent（硅基流动免费模型）
+evaluator:
+  enabled: true
+  api_key: "your-siliconflow-api-key"
+  base_url: "https://api.siliconflow.cn/v1"
+  model_name: Qwen/Qwen2.5-14B-Instruct
+  temperature: 0.0
+  pass_threshold: 6.0
+  max_retries: 2
+  fallback_message: "抱歉，我暂时无法准确回答您的问题。建议您联系人工客服获取更专业的帮助。"
+  dimensions:
+    relevance:
+      weight: 0.3
+    accuracy:
+      weight: 0.35
+    safety:
+      weight: 0.2
+    completeness:
+      weight: 0.15
+
 # 外部数据文件路径
 external_data_path: "data/external/records.csv"

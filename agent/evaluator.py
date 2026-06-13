@@ -6,11 +6,11 @@ import sys
 import os
 import re
 import json
-import yaml
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from langchain_openai import ChatOpenAI
+from utils.config_handler import agent_config
 from utils.path_tool import get_abs_path
 from utils.logger import logger
 
@@ -19,7 +19,7 @@ class ResponseEvaluator:
     """回复质量评估器 —— 评分 + 反馈 + 重生成"""
 
     def __init__(self):
-        cfg = self._load_config()
+        cfg = agent_config.get("evaluator", {})
 
         self.enabled = cfg.get("enabled", True)
         if not self.enabled:
@@ -195,17 +195,6 @@ class ResponseEvaluator:
             return self.fallback_message
 
     # ---- 内部方法 ----
-
-    def _load_config(self) -> dict:
-        """加载 evaluator.yml 配置"""
-        config_path = get_abs_path("config/evaluator.yml")
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                full = yaml.safe_load(f)
-            return full.get("evaluator", {})
-        except Exception as e:
-            logger.warning(f"[Evaluator] 加载配置失败，使用默认值: {e}")
-            return {}
 
     @staticmethod
     def _load_prompt(relative_path: str) -> str:
