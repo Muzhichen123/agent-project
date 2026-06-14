@@ -35,8 +35,3 @@ class EmbeddingsFactory(BaseModelFactory):
 # 实例化
 chat_model = ChatModelFactory().generator()
 embedding_model = EmbeddingsFactory().generator()
-if __name__ == "__main__":
-    # 测试聊天模型
-    response = chat_model.invoke("你好")
-    print("聊天模型响应:", response.content)    
-    print(embedding_model.embed_query("你好"))

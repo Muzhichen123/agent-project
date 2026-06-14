@@ -10,6 +10,7 @@ from utils.app_history import get_history
 from agent.tools.agent_tools import rag_summarize, get_weather, get_user_id, get_user_location, get_current_date, fetch_external_data, fill_context_for_report
 from agent.tools.middleware import monitor_tool, log_before_model, report_prompt_switch
 from agent.evaluator import get_evaluator
+from agent.input_guard import check_input
 import yaml
 from utils.path_tool import get_abs_path
 
@@ -59,6 +60,13 @@ class ReactAgent():
         Args:
             query: 用户输入
         """
+        # ── 输入安全检测 ──
+        reject_reason = check_input(query)
+        if reject_reason:
+            safe_msg = "抱歉，您的输入包含不安全内容，已被拦截。如有疑问请联系人工客服。"
+            yield f"{safe_msg}\n"
+            return
+
         if self.memory_enabled and self.memory_manager is not None:
             # ---- Memory 模式：分层记忆 ----
             memory_context = self.memory_manager.get_context()
