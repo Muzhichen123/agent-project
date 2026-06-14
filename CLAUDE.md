@@ -40,8 +40,9 @@ RoboServe 是一个基于 LangChain ReAct Agent 的 RAG 智能问答系统。支
 
 | 文件 | 职责 | 关键点 |
 |------|------|--------|
-| `agent/react_agent.py` | ReAct Agent 主控 | LLM 自主决策 + 工具调用 |
+| `agent/react_agent.py` | ReAct Agent 主控 | LLM 自主决策 + 工具调用 + 输入过滤 |
 | `agent/evaluator.py` | A2A 评估 | 四维度打分 + 重试回路 |
+| `agent/input_guard.py` | 输入安全过滤 | 正则拦截 8 类注入/越狱/窃取 |
 | `agent/tools/agent_tools.py` | 7 个工具函数 | `@tool` 装饰器注册 |
 | `agent/tools/middleware.py` | LangGraph 中间件 | 工具监控 + 动态 Prompt |
 | `Rag/vector_store.py` | 向量库 + 混合检索 | ChromaDB + RRF 融合 |
@@ -64,8 +65,9 @@ RoboServe 是一个基于 LangChain ReAct Agent 的 RAG 智能问答系统。支
 
 ### 配置管理
 - 配置文件统一在 `config/` 目录，YAML 格式
-- `config/agent.yml` 含 API Key，不提交 Git（已在 `.gitignore`）
+- `config/agent.yml` 含所有 API Key + 评估配置，不提交 Git（已在 `.gitignore`）
 - 提供 `config/agent.example.yml` 作为模板
+- 评估配置已合并到 `agent.yml` 中，`config/evaluator.yml` 已废弃删除
 - 通过 `utils/config_handler.py` 统一加载
 
 ### 模块设计原则
